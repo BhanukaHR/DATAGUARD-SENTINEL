@@ -1,3 +1,65 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #0f172a;
+    --color-primary-hover: #1e293b;
+    --color-background: #f8fafc;
+    --color-surface: #ffffff;
+    --color-border: #e2e8f0;
+    --color-text: #0f172a;
+    --color-text-secondary: #64748b;
+    --color-risk-low: #10b981;
+    --color-risk-medium: #f59e0b;
+    --color-risk-high: #f97316;
+    --color-risk-critical: #ef4444;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+}
+
+@layer components {
+  /* Consistent card style */
+  .card {
+    @apply bg-white border border-slate-200 rounded-lg shadow-sm;
+  }
+
+  /* Form input base */
+  .input {
+    @apply w-full px-3 py-2 text-sm border border-slate-200 rounded-md
+           outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-300
+           transition-shadow duration-150;
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-md
+           hover:bg-slate-800 transition-colors duration-150 disabled:opacity-50;
+  }
+
+  /* Secondary button */
+  .btn-secondary {
+    @apply px-4 py-2 text-sm font-medium bg-white text-slate-700 border border-slate-200
+           rounded-md hover:bg-slate-50 transition-colors duration-150 disabled:opacity-50;
+  }
+}
