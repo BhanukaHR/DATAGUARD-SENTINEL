@@ -1,16 +1,35 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { createHubConnection } from "../config/signalr";
+import { createHubConnection, isSignalREnabled } from "../config/signalr";
 import { useAlertStore } from "../store/alert-store";
 import { toast } from "sonner";
 import type * as signalR from "@microsoft/signalr";
 
+export type ConnectionMode = "signalr" | "firestore" | "offline";
+
 export function useSignalR() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [mode, setMode] = useState<ConnectionMode>(
+    isSignalREnabled() ? "offline" : "firestore"
+  );
   const { addAlert, addUploadEvent, updateRiskProfile, addEscalation, updateAgentStatus } = useAlertStore();
 
   useEffect(() => {
+    // If no SignalR URL configured, skip connection entirely.
+    // The app will use Firestore real-time listeners instead.
+    if (!isSignalREnabled()) {
+      setMode("firestore");
+      setIsConnected(true); // Firestore is always "connected"
+      return;
+    }
+
     const connection = createHubConnection();
+    if (!connection) {
+      setMode("firestore");
+      setIsConnected(true);
+      return;
+    }
+
     connectionRef.current = connection;
 
     connection.on("ReceiveAlert", (alert) => {
@@ -50,22 +69,31 @@ export function useSignalR() {
     connection.on("AgentStatusUpdate", (heartbeat) => updateAgentStatus(heartbeat));
     connection.on("AgentConnected", (agentInfo) => updateAgentStatus(agentInfo));
 
-    connection.onreconnecting(() => setIsConnected(false));
+    connection.onreconnecting(() => {
+      setIsConnected(false);
+      setMode("offline");
+    });
     connection.onreconnected(() => {
       setIsConnected(true);
+      setMode("signalr");
       connection.invoke("JoinDashboard");
     });
-    connection.onclose(() => setIsConnected(false));
+    connection.onclose(() => {
+      setIsConnected(false);
+      setMode("offline");
+    });
 
     connection
       .start()
       .then(() => {
         setIsConnected(true);
+        setMode("signalr");
         connection.invoke("JoinDashboard");
       })
       .catch((err) => {
-        console.warn("SignalR connection failed:", err);
-        setIsConnected(false);
+        console.warn("SignalR connection failed — falling back to Firestore:", err);
+        setIsConnected(true); // Firestore still works
+        setMode("firestore");
       });
 
     return () => {
@@ -86,5 +114,5 @@ export function useSignalR() {
     await connectionRef.current?.invoke("PingAgent", agentId);
   }, []);
 
-  return { isConnected, sendCommand, broadcastPolicy, pingAgent };
+  return { isConnected, mode, sendCommand, broadcastPolicy, pingAgent };
 }
