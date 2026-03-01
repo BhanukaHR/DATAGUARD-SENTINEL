@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
+import { useAuth } from "./hooks/useAuth";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { MainLayout } from "./components/layout/MainLayout";
 
@@ -35,6 +36,8 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  useAuth();
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

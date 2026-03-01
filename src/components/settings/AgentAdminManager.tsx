@@ -8,8 +8,8 @@ interface AgentAdmin {
   id: string;
   email?: string;
   machineName?: string;
-  lastLoginAt?: { toDate?: () => Date } | string;
-  passwordChangedAt?: { toDate?: () => Date } | string;
+  lastLoginAt?: unknown;
+  passwordChangedAt?: unknown;
 }
 
 export function AgentAdminManager() {
@@ -91,22 +91,10 @@ export function AgentAdminManager() {
                   </td>
                   <td className="py-3 text-slate-500">{admin.machineName || "—"}</td>
                   <td className="py-3 text-slate-500">
-                    {admin.lastLoginAt
-                      ? formatDate(
-                          typeof admin.lastLoginAt === "object" && admin.lastLoginAt.toDate
-                            ? admin.lastLoginAt.toDate()
-                            : new Date(String(admin.lastLoginAt))
-                        )
-                      : "Never"}
+                    {admin.lastLoginAt ? formatDate(admin.lastLoginAt) : "Never"}
                   </td>
                   <td className="py-3 text-slate-500">
-                    {admin.passwordChangedAt
-                      ? formatDate(
-                          typeof admin.passwordChangedAt === "object" && admin.passwordChangedAt.toDate
-                            ? admin.passwordChangedAt.toDate()
-                            : new Date(String(admin.passwordChangedAt))
-                        )
-                      : "—"}
+                    {admin.passwordChangedAt ? formatDate(admin.passwordChangedAt) : "—"}
                   </td>
                   <td className="py-3">
                     {editingId === admin.id ? (

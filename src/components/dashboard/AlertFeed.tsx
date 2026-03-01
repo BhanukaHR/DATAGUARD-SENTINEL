@@ -25,7 +25,7 @@ export function AlertFeed() {
               <div className="flex items-center justify-between mb-1">
                 <AlertTypeBadge type={alert.type} />
                 <span className="text-[11px] text-slate-400">
-                  {alert.timestamp ? formatTimeAgo(new Date(alert.timestamp as string)) : "just now"}
+                  {alert.timestamp ? formatTimeAgo(alert.timestamp) : "just now"}
                 </span>
               </div>
               <p className="text-xs font-medium text-slate-800 truncate">{alert.title}</p>

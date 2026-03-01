@@ -26,7 +26,7 @@ function buildDateQuery(
   pageSize: number,
   lastDoc?: DocumentSnapshot
 ) {
-  const constraints: QueryConstraint[] = [orderBy(dateField, "desc"), limit(pageSize + 1)];
+  const constraints: QueryConstraint[] = [];
 
   if (filters.startDate) {
     constraints.push(where(dateField, ">=", Timestamp.fromDate(filters.startDate)));
@@ -34,6 +34,12 @@ function buildDateQuery(
   if (filters.endDate) {
     constraints.push(where(dateField, "<=", Timestamp.fromDate(filters.endDate)));
   }
+  // Only add orderBy when filtering by date (prevents silent doc exclusion
+  // and avoids requiring a composite Firestore index)
+  if (filters.startDate || filters.endDate) {
+    constraints.push(orderBy(dateField, "desc"));
+  }
+  constraints.push(limit(pageSize + 1));
   if (lastDoc) {
     constraints.push(startAfter(lastDoc));
   }

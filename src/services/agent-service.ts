@@ -17,8 +17,17 @@ export const agentService = {
     return docSnap.exists() ? ({ agentId: docSnap.id, ...docSnap.data() } as AgentHeartbeat) : null;
   },
 
-  getAgentStatus(lastHeartbeat: Date | string): "online" | "warning" | "offline" {
-    const heartbeatTime = typeof lastHeartbeat === "string" ? new Date(lastHeartbeat) : lastHeartbeat;
+  getAgentStatus(lastHeartbeat: Date | string | { seconds: number; toDate?: () => Date }): "online" | "warning" | "offline" {
+    let heartbeatTime: Date;
+    if (typeof lastHeartbeat === "string") {
+      heartbeatTime = new Date(lastHeartbeat);
+    } else if (lastHeartbeat && typeof (lastHeartbeat as { toDate?: () => Date }).toDate === "function") {
+      heartbeatTime = (lastHeartbeat as { toDate: () => Date }).toDate();
+    } else if (lastHeartbeat && typeof (lastHeartbeat as { seconds: number }).seconds === "number") {
+      heartbeatTime = new Date((lastHeartbeat as { seconds: number }).seconds * 1000);
+    } else {
+      heartbeatTime = lastHeartbeat as Date;
+    }
     const diffSeconds = (Date.now() - heartbeatTime.getTime()) / 1000;
 
     if (diffSeconds <= ENV.HEARTBEAT_TIMEOUT) return "online";

@@ -1,6 +1,6 @@
 import {
   collection, getDocs, doc, getDoc, deleteDoc, updateDoc,
-  query, where, orderBy, limit, startAfter, DocumentSnapshot
+  query, where, limit, startAfter, DocumentSnapshot
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import type { UserAccount } from "../types/user";
@@ -19,15 +19,21 @@ export const userService = {
     pageSize = 50,
     lastDoc?: DocumentSnapshot
   ): Promise<{ users: UserAccount[]; lastDoc: DocumentSnapshot | undefined; hasMore: boolean }> {
-    let q = query(collection(db, USERS), orderBy("registeredAt", "desc"), limit(pageSize + 1));
+    // Use simple collection scan — orderBy("registeredAt") silently drops docs missing that field
+    let q = query(collection(db, USERS), limit(pageSize + 1));
     if (lastDoc) {
-      q = query(collection(db, USERS), orderBy("registeredAt", "desc"), startAfter(lastDoc), limit(pageSize + 1));
+      q = query(collection(db, USERS), startAfter(lastDoc), limit(pageSize + 1));
     }
     const snapshot = await getDocs(q);
-    const users = snapshot.docs.slice(0, pageSize).map((d) => ({
-      userId: d.id,
-      ...d.data(),
-    })) as UserAccount[];
+    // Sort client-side so docs without registeredAt still appear
+    const users = snapshot.docs
+      .slice(0, pageSize)
+      .map((d) => ({ userId: d.id, ...d.data() } as UserAccount))
+      .sort((a, b) => {
+        const aTime = a.registeredAt ? new Date(typeof a.registeredAt === "object" ? (a.registeredAt as { seconds?: number }).seconds! * 1000 : a.registeredAt as string).getTime() : 0;
+        const bTime = b.registeredAt ? new Date(typeof b.registeredAt === "object" ? (b.registeredAt as { seconds?: number }).seconds! * 1000 : b.registeredAt as string).getTime() : 0;
+        return bTime - aTime;
+      });
 
     return {
       users,

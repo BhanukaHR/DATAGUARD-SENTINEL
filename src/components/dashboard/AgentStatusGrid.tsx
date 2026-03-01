@@ -1,6 +1,6 @@
 import type { AgentHeartbeat } from "../../types/agent";
 import { agentService } from "../../services/agent-service";
-import { formatTimeAgo } from "../../utils/formatters";
+import { formatTimeAgo, toDate } from "../../utils/formatters";
 
 interface AgentStatusGridProps {
   agents: AgentHeartbeat[];
@@ -28,7 +28,7 @@ export function AgentStatusGrid({ agents }: AgentStatusGridProps) {
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-800 truncate">{agent.machineName}</p>
                   <p className="text-[10px] text-slate-500">
-                    {agent.lastHeartbeat ? formatTimeAgo(new Date(agent.lastHeartbeat as string)) : "—"}
+                    {agent.lastHeartbeat ? formatTimeAgo(toDate(agent.lastHeartbeat)) : "—"}
                   </p>
                 </div>
               </div>

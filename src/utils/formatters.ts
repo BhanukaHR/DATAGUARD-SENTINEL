@@ -1,23 +1,41 @@
 import { format, formatDistanceToNow, isValid, parseISO } from "date-fns";
 
-export function formatDate(dateInput: Date | string | undefined | null): string {
-  if (!dateInput) return "—";
-  const d = typeof dateInput === "string" ? parseISO(dateInput) : dateInput;
-  if (!isValid(d)) return "—";
+/** Converts any date-like value (JS Date, ISO string, Firestore Timestamp) to a JS Date */
+export function toDate(input: unknown): Date | null {
+  if (!input) return null;
+  // Firestore Timestamp — has toDate()
+  if (typeof (input as { toDate?: unknown }).toDate === "function") {
+    return (input as { toDate: () => Date }).toDate();
+  }
+  // Firestore Timestamp-like plain object — has .seconds
+  if (typeof input === "object" && typeof (input as { seconds?: unknown }).seconds === "number") {
+    return new Date((input as { seconds: number }).seconds * 1000);
+  }
+  // ISO string
+  if (typeof input === "string") {
+    const d = parseISO(input);
+    return isValid(d) ? d : null;
+  }
+  // Already a Date
+  if (input instanceof Date) return isValid(input) ? input : null;
+  return null;
+}
+
+export function formatDate(dateInput: unknown): string {
+  const d = toDate(dateInput);
+  if (!d) return "—";
   return format(d, "MMM d, yyyy HH:mm");
 }
 
-export function formatShortDate(dateInput: Date | string | undefined | null): string {
-  if (!dateInput) return "—";
-  const d = typeof dateInput === "string" ? parseISO(dateInput) : dateInput;
-  if (!isValid(d)) return "—";
+export function formatShortDate(dateInput: unknown): string {
+  const d = toDate(dateInput);
+  if (!d) return "—";
   return format(d, "MMM d, yyyy");
 }
 
-export function formatTimeAgo(dateInput: Date | string | undefined | null): string {
-  if (!dateInput) return "—";
-  const d = typeof dateInput === "string" ? parseISO(dateInput) : dateInput;
-  if (!isValid(d)) return "—";
+export function formatTimeAgo(dateInput: unknown): string {
+  const d = toDate(dateInput);
+  if (!d) return "—";
   return formatDistanceToNow(d, { addSuffix: true });
 }
 

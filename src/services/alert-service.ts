@@ -20,7 +20,9 @@ export const alertService = {
     pageSize = 50,
     lastDoc?: DocumentSnapshot
   ): Promise<{ alerts: DlpAlert[]; lastDoc?: DocumentSnapshot; hasMore: boolean }> {
-    const constraints: QueryConstraint[] = [orderBy("timestamp", "desc"), limit(pageSize + 1)];
+    // Only add orderBy when date filters are present (avoids composite index requirement
+    // and prevents silent exclusion of docs missing the timestamp field)
+    const constraints: QueryConstraint[] = [];
 
     if (filters.startDate) {
       constraints.push(where("timestamp", ">=", Timestamp.fromDate(filters.startDate)));
@@ -28,6 +30,10 @@ export const alertService = {
     if (filters.endDate) {
       constraints.push(where("timestamp", "<=", Timestamp.fromDate(filters.endDate)));
     }
+    if (filters.startDate || filters.endDate) {
+      constraints.push(orderBy("timestamp", "desc"));
+    }
+    constraints.push(limit(pageSize + 1));
     if (lastDoc) {
       constraints.push(startAfter(lastDoc));
     }
