@@ -10,6 +10,22 @@ import type { AiApplicationEvent } from "../types/ai-application-event";
 import type { FtpTransferEvent } from "../types/ftp-event";
 import type { EmailExfiltrationEvent } from "../types/email-event";
 
+/**
+ * Normalise Firestore document fields from PascalCase (written by C# agent)
+ * to camelCase so the frontend TypeScript interfaces work correctly.
+ * Keeps both casings so lookups succeed regardless.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeDoc(raw: Record<string, any>): Record<string, any> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const camel = key.charAt(0).toLowerCase() + key.slice(1);
+    result[camel] = value;
+    if (camel !== key) result[key] = value; // keep original too
+  }
+  return result;
+}
+
 export interface EventFilters {
   channel?: string;
   sensitivityLevel?: string;
@@ -78,7 +94,7 @@ export const eventService = {
     const snapshot = await getDocs(q);
     let events = snapshot.docs.slice(0, pageSize).map((d) => ({
       eventId: d.id,
-      ...d.data(),
+      ...normalizeDoc(d.data()),
     })) as UploadEvent[];
 
     events = clientFilter(events, filters);
@@ -99,7 +115,7 @@ export const eventService = {
     const snapshot = await getDocs(q);
     let events = snapshot.docs.slice(0, pageSize).map((d) => ({
       id: d.id,
-      ...d.data(),
+      ...normalizeDoc(d.data()),
     })) as unknown as ClipboardEvent[];
 
     events = clientFilter(events, filters);
@@ -120,7 +136,7 @@ export const eventService = {
     const snapshot = await getDocs(q);
     let events = snapshot.docs.slice(0, pageSize).map((d) => ({
       id: d.id,
-      ...d.data(),
+      ...normalizeDoc(d.data()),
     })) as unknown as RemovableMediaEvent[];
 
     events = clientFilter(events, filters);
@@ -139,7 +155,7 @@ export const eventService = {
 
     const q = query(collection(db, "uploadEvents"), ...constraints);
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ eventId: d.id, ...d.data() })) as UploadEvent[];
+    return snapshot.docs.map((d) => ({ eventId: d.id, ...normalizeDoc(d.data()) })) as UploadEvent[];
   },
 
   async getAiEvents(
@@ -151,7 +167,7 @@ export const eventService = {
     const snapshot = await getDocs(q);
     let events = snapshot.docs.slice(0, pageSize).map((d) => ({
       id: d.id,
-      ...d.data(),
+      ...normalizeDoc(d.data()),
     })) as unknown as AiApplicationEvent[];
 
     events = clientFilter(events, filters);
@@ -172,7 +188,7 @@ export const eventService = {
     const snapshot = await getDocs(q);
     let events = snapshot.docs.slice(0, pageSize).map((d) => ({
       eventId: d.id,
-      ...d.data(),
+      ...normalizeDoc(d.data()),
     })) as unknown as FtpTransferEvent[];
 
     events = clientFilter(events, filters);
@@ -193,7 +209,7 @@ export const eventService = {
     const snapshot = await getDocs(q);
     let events = snapshot.docs.slice(0, pageSize).map((d) => ({
       eventId: d.id,
-      ...d.data(),
+      ...normalizeDoc(d.data()),
     })) as unknown as EmailExfiltrationEvent[];
 
     events = clientFilter(events, filters);

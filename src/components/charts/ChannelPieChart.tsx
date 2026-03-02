@@ -8,8 +8,9 @@ interface ChannelData {
 
 const COLORS: Record<string, string> = {
   Browser: "#3b82f6", Clipboard: "#8b5cf6", USB: "#f97316",
-  AiApplication: "#ef4444", FileSystem: "#6b7280", Email: "#14b8a6",
-  FTP: "#eab308", CloudSync: "#06b6d4", Unknown: "#94a3b8",
+  AiApplication: "#ef4444", AI: "#ef4444", FileSystem: "#6b7280",
+  Email: "#14b8a6", FTP: "#eab308", Ftp: "#eab308",
+  CloudSync: "#06b6d4", EnterpriseApp: "#a855f7", Unknown: "#94a3b8",
 };
 
 export function ChannelPieChart({ data, height = 280 }: { data: ChannelData[]; height?: number }) {

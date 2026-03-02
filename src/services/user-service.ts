@@ -14,6 +14,21 @@ const USB_EVENTS = "usbEvents";
 const ALERTS = "alerts";
 const AGENTS = "agents";
 
+/**
+ * Normalise Firestore document fields from PascalCase (written by C# agent)
+ * to camelCase so the frontend TypeScript interfaces work correctly.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeDoc(raw: Record<string, any>): Record<string, any> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const camel = key.charAt(0).toLowerCase() + key.slice(1);
+    result[camel] = value;
+    if (camel !== key) result[key] = value;
+  }
+  return result;
+}
+
 export const userService = {
   async getAllUsers(
     pageSize = 50,
@@ -28,7 +43,7 @@ export const userService = {
     // Sort client-side so docs without registeredAt still appear
     const users = snapshot.docs
       .slice(0, pageSize)
-      .map((d) => ({ userId: d.id, ...d.data() } as UserAccount))
+      .map((d) => ({ userId: d.id, ...normalizeDoc(d.data()) } as UserAccount))
       .sort((a, b) => {
         const aTime = a.registeredAt ? new Date(typeof a.registeredAt === "object" ? (a.registeredAt as { seconds?: number }).seconds! * 1000 : a.registeredAt as string).getTime() : 0;
         const bTime = b.registeredAt ? new Date(typeof b.registeredAt === "object" ? (b.registeredAt as { seconds?: number }).seconds! * 1000 : b.registeredAt as string).getTime() : 0;
@@ -46,7 +61,7 @@ export const userService = {
     const snapshot = await getDocs(collection(db, USERS));
     const term = searchTerm.toLowerCase();
     return snapshot.docs
-      .map((d) => ({ userId: d.id, ...d.data() } as UserAccount))
+      .map((d) => ({ userId: d.id, ...normalizeDoc(d.data()) } as UserAccount))
       .filter(
         (user) =>
           user.username.toLowerCase().includes(term) ||
@@ -57,12 +72,12 @@ export const userService = {
 
   async getUserById(userId: string): Promise<UserAccount | null> {
     const docSnap = await getDoc(doc(db, USERS, userId));
-    return docSnap.exists() ? ({ userId: docSnap.id, ...docSnap.data() } as UserAccount) : null;
+    return docSnap.exists() ? ({ userId: docSnap.id, ...normalizeDoc(docSnap.data()) } as UserAccount) : null;
   },
 
   async getUserRiskProfile(userId: string): Promise<UserRiskProfile | null> {
     const docSnap = await getDoc(doc(db, RISK_PROFILES, userId));
-    return docSnap.exists() ? (docSnap.data() as UserRiskProfile) : null;
+    return docSnap.exists() ? ({ userId: docSnap.id, ...normalizeDoc(docSnap.data()) } as UserRiskProfile) : null;
   },
 
   async removeUser(userId: string): Promise<{ success: boolean; error?: string; deletedCounts: Record<string, number> }> {

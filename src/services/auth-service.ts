@@ -2,7 +2,7 @@ import {
   signInWithEmailAndPassword, signOut, updatePassword,
   reauthenticateWithCredential, EmailAuthProvider, updateEmail
 } from "firebase/auth";
-import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, writeBatch } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 import { sha256 } from "../utils/hash";
 
@@ -146,6 +146,75 @@ export const authService = {
       return { success: true };
     } catch (error: unknown) {
       return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  RE-AUTHENTICATE (for dangerous operations)
+  // ═══════════════════════════════════════════════════════════
+
+  async reauthenticate(password: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        return { success: false, error: "No authenticated user" };
+      }
+      const credential = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, credential);
+      return { success: true };
+    } catch (error: unknown) {
+      if (error instanceof Error && (error as { code?: string }).code === "auth/wrong-password") {
+        return { success: false, error: "Incorrect password" };
+      }
+      return { success: false, error: error instanceof Error ? error.message : "Authentication failed" };
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  DELETE FIRESTORE DATA (clear history)
+  // ═══════════════════════════════════════════════════════════
+
+  async deleteAllFirestoreData(
+    collectionsToDelete: string[]
+  ): Promise<{ success: boolean; deletedCounts: Record<string, number>; error?: string }> {
+    try {
+      const deletedCounts: Record<string, number> = {};
+
+      for (const colName of collectionsToDelete) {
+        const snapshot = await getDocs(collection(db, colName));
+        let count = 0;
+
+        // Firestore batches support max 500 operations
+        const batchSize = 450;
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (const docSnap of snapshot.docs) {
+          batch.delete(docSnap.ref);
+          batchCount++;
+          count++;
+
+          if (batchCount >= batchSize) {
+            await batch.commit();
+            batch = writeBatch(db);
+            batchCount = 0;
+          }
+        }
+
+        if (batchCount > 0) {
+          await batch.commit();
+        }
+
+        deletedCounts[colName] = count;
+      }
+
+      return { success: true, deletedCounts };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        deletedCounts: {},
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
   },
 };

@@ -1,5 +1,6 @@
 import { DashboardCredentialsForm } from "../components/settings/DashboardCredentialsForm";
 import { AgentAdminManager } from "../components/settings/AgentAdminManager";
+import { DeleteDataSection } from "../components/settings/DeleteDataSection";
 import { useAuthStore } from "../store/auth-store";
 import { Settings } from "lucide-react";
 
@@ -61,6 +62,11 @@ export function SettingsPage() {
           <dd className="text-slate-700">{import.meta.env.VITE_APP_VERSION || "1.0.0"}</dd>
         </dl>
       </div>
+
+      <hr className="border-slate-200" />
+
+      {/* Delete Data */}
+      <DeleteDataSection />
     </div>
   );
 }

@@ -30,8 +30,34 @@ export function DashboardPage() {
     queryFn: async () => {
       const { getDocs, collection } = await import("firebase/firestore");
       const { db } = await import("../config/firebase");
-      const snap = await getDocs(collection(db, "riskProfiles"));
-      return snap.docs.map((d) => ({ userId: d.id, ...d.data() })) as unknown as UserRiskProfile[];
+      const [riskSnap, usersSnap] = await Promise.all([
+        getDocs(collection(db, "riskProfiles")),
+        getDocs(collection(db, "users")),
+      ]);
+
+      // Map machine name → user document ID so navigation uses the correct ID
+      const machineToUserId = new Map<string, string>();
+      usersSnap.docs.forEach((d) => {
+        const raw = d.data();
+        // Normalise PascalCase keys from C# agent
+        const machineName = raw.machineName || raw.MachineName;
+        if (machineName) {
+          machineToUserId.set(machineName, d.id);
+        }
+      });
+
+      return riskSnap.docs.map((d) => {
+        const raw = d.data();
+        // Normalise PascalCase keys to camelCase
+        const normalized: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(raw)) {
+          const camel = key.charAt(0).toLowerCase() + key.slice(1);
+          normalized[camel] = value;
+          if (camel !== key) normalized[key] = value;
+        }
+        const resolvedUserId = machineToUserId.get(d.id) || d.id;
+        return { ...normalized, userId: resolvedUserId } as unknown as UserRiskProfile;
+      });
     },
   });
 

@@ -22,10 +22,13 @@ export function UserDetailPage() {
     enabled: !!userId,
   });
 
+  // Risk profiles are keyed by machine name, not employee ID
+  const riskProfileKey = user?.machineName ?? null;
+
   const { data: riskProfile, isLoading: profileLoading } = useQuery({
-    queryKey: ["userRiskProfile", userId],
-    queryFn: () => userService.getUserRiskProfile(userId!),
-    enabled: !!userId,
+    queryKey: ["userRiskProfile", riskProfileKey],
+    queryFn: () => userService.getUserRiskProfile(riskProfileKey!),
+    enabled: !!riskProfileKey,
   });
 
   const { data: uploadData } = useQuery({
