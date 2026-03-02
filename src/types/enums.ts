@@ -79,6 +79,21 @@ export const AiEventType = {
 } as const;
 export type AiEventType = (typeof AiEventType)[keyof typeof AiEventType];
 
+export const FtpEventType = {
+  ProcessDetected: "ProcessDetected",
+  NetworkConnection: "NetworkConnection",
+  FileTransfer: "FileTransfer",
+} as const;
+export type FtpEventType = (typeof FtpEventType)[keyof typeof FtpEventType];
+
+export const EmailEventType = {
+  ProcessDetected: "ProcessDetected",
+  NetworkConnection: "NetworkConnection",
+  AttachmentDetected: "AttachmentDetected",
+  ComposeDetected: "ComposeDetected",
+} as const;
+export type EmailEventType = (typeof EmailEventType)[keyof typeof EmailEventType];
+
 export const TrustCategory = {
   Trusted: "Trusted",
   Known: "Known",

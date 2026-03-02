@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { eventService } from "../services/event-service";
+import { useAlertStore } from "../store/alert-store";
 import { DataTable } from "../components/common/DataTable";
 import { BooleanBadge } from "../components/common/Badges";
 import { formatDate } from "../utils/formatters";
@@ -16,6 +17,21 @@ export function AiEventsPage() {
     queryFn: () => eventService.getAiEvents({}),
   });
 
+  const liveAiEvents = useAlertStore((s) => s.liveAiEvents);
+
+  // Merge live SignalR events with Firestore events, deduplicate by eventId
+  const mergedEvents = useMemo(() => {
+    const firestoreEvents = data?.events || [];
+    const all = [...liveAiEvents, ...firestoreEvents];
+    const seen = new Set<string>();
+    return all.filter((e) => {
+      const id = e.eventId;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [liveAiEvents, data?.events]);
+
   const columns = useMemo(() => [
     columnHelper.accessor("timestamp", {
       header: "Timestamp",
@@ -27,7 +43,15 @@ export function AiEventsPage() {
     }),
     columnHelper.accessor("userId", {
       header: "User",
-      cell: (info) => <span className="text-sm">{info.getValue()}</span>,
+      cell: (info) => {
+        const row = info.row.original;
+        return (
+          <div className="flex flex-col">
+            <span className="text-sm font-medium">{row.username || row.userId}</span>
+            {row.username && <span className="text-xs text-slate-400">{row.userId}</span>}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("eventType", {
       header: "Event Type",
@@ -72,7 +96,7 @@ export function AiEventsPage() {
         <Bot className="h-6 w-6 text-slate-700" />
         <h1 className="text-2xl font-semibold text-slate-900">AI Application Events</h1>
       </div>
-      <DataTable columns={columns} data={data?.events || []} isLoading={isLoading} />
+      <DataTable columns={columns} data={mergedEvents} isLoading={isLoading} />
     </div>
   );
 }

@@ -5,14 +5,12 @@ import { useAlertStore } from "../../store/alert-store";
 import { authService } from "../../services/auth-service";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import type { ConnectionMode } from "../../hooks/useSignalR";
 
 interface HeaderProps {
   isConnected: boolean;
-  mode: ConnectionMode;
 }
 
-export function Header({ isConnected, mode }: HeaderProps) {
+export function Header({ isConnected }: HeaderProps) {
   const { admin, clearAuth } = useAuthStore();
   const { liveAlerts, unreadCount, markAllRead } = useAlertStore();
   const [showAlerts, setShowAlerts] = useState(false);
@@ -43,28 +41,10 @@ export function Header({ isConnected, mode }: HeaderProps) {
       <div className="flex items-center gap-3">
         <h2 className="text-sm font-semibold text-slate-900">Admin Dashboard</h2>
         <span
-          className={`flex items-center gap-1 text-xs ${
-            isConnected
-              ? mode === "signalr"
-                ? "text-green-600"
-                : "text-blue-600"
-              : "text-slate-400"
-          }`}
+          className={`flex items-center gap-1 text-xs ${isConnected ? "text-green-600" : "text-slate-400"}`}
         >
-          <span
-            className={`h-2 w-2 rounded-full ${
-              isConnected
-                ? mode === "signalr"
-                  ? "bg-green-500"
-                  : "bg-blue-500"
-                : "bg-slate-300"
-            }`}
-          />
-          {!isConnected
-            ? "Disconnected"
-            : mode === "signalr"
-            ? "Live (SignalR)"
-            : "Live (Firestore)"}
+          <span className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-slate-300"}`} />
+          {isConnected ? "Connected" : "Disconnected"}
         </span>
       </div>
 

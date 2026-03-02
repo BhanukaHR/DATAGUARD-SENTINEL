@@ -13,6 +13,8 @@ export interface DlpAlert {
   timestamp: Date | string;
   userId: string;
   username?: string;
+  agentId?: string;
+  organizationId?: string;
   isRead: boolean;
   isResolved: boolean;
   resolvedBy?: string;

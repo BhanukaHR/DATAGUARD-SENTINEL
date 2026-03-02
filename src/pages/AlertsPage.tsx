@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { alertService } from "../services/alert-service";
@@ -16,9 +16,30 @@ const columnHelper = createColumnHelper<DlpAlert>();
 export function AlertsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { liveAlerts } = useAlertStore();
+  const { liveAlerts, addAlert } = useAlertStore();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [resolvedFilter, setResolvedFilter] = useState<string>("all");
+  const [realtimeAlerts, setRealtimeAlerts] = useState<DlpAlert[]>([]);
+
+  // Real-time Firestore subscription — picks up alerts even when SignalR is down
+  useEffect(() => {
+    const unsubscribe = alertService.subscribeToAlerts(
+      (newAlert) => {
+        // Push new alerts to the live feed + show toast
+        addAlert(newAlert);
+        if (newAlert.type === "Critical") {
+          toast.error(`CRITICAL: ${newAlert.title}`, {
+            description: newAlert.message,
+            duration: 8000,
+          });
+        }
+      },
+      (allAlerts) => {
+        setRealtimeAlerts(allAlerts);
+      }
+    );
+    return () => unsubscribe();
+  }, [addAlert]);
 
   const { data: alertsData, isLoading } = useQuery({
     queryKey: ["alerts"],
@@ -102,15 +123,16 @@ export function AlertsPage() {
 
   const allAlerts = useMemo(() => {
     const firestoreAlerts = alertsData?.alerts || [];
-    const combined = [...liveAlerts, ...firestoreAlerts];
-    // Deduplicate by alertId
+    // Merge: realtime Firestore listener > live SignalR > initial query fetch
+    const combined = [...liveAlerts, ...realtimeAlerts, ...firestoreAlerts];
+    // Deduplicate by alertId, keeping the first occurrence (newest source wins)
     const seen = new Set<string>();
     return combined.filter((a) => {
       if (seen.has(a.alertId)) return false;
       seen.add(a.alertId);
       return true;
     });
-  }, [alertsData, liveAlerts]);
+  }, [alertsData, liveAlerts, realtimeAlerts]);
 
   const filteredAlerts = useMemo(() => {
     return allAlerts.filter((a) => {

@@ -6,6 +6,8 @@ export type { ClipboardEvent } from "./clipboard-event";
 export type { RemovableMediaEvent } from "./removable-media-event";
 export type { AiApplicationEvent } from "./ai-application-event";
 export type { AgentHeartbeat } from "./agent";
+export type { FtpTransferEvent } from "./ftp-event";
+export type { EmailExfiltrationEvent } from "./email-event";
 export type { AuditLog } from "./audit-log";
 export type { UserAccount } from "./user";
 export type { DashboardAdmin, AgentAdmin } from "./admin";

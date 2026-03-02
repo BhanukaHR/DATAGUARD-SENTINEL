@@ -1,102 +1,183 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { createHubConnection, isSignalREnabled } from "../config/signalr";
+import { createHubConnection } from "../config/signalr";
 import { useAlertStore } from "../store/alert-store";
 import { toast } from "sonner";
 import type * as signalR from "@microsoft/signalr";
+import type { DlpAlert } from "../types/dlp-alert";
+import type { UploadEvent } from "../types/upload-event";
+import type { AiApplicationEvent } from "../types/ai-application-event";
+import type { FtpTransferEvent } from "../types/ftp-event";
+import type { EmailExfiltrationEvent } from "../types/email-event";
 
-export type ConnectionMode = "signalr" | "firestore" | "offline";
+function parsePayload<T = Record<string, unknown>>(raw: unknown): T {
+  const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
+  // Normalise first-char-uppercase keys to camelCase
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    const camel = key.charAt(0).toLowerCase() + key.slice(1);
+    result[camel] = value;
+    // Keep original key too so both casings work
+    if (camel !== key) result[key] = value;
+  }
+  return result as T;
+}
 
 export function useSignalR() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [mode, setMode] = useState<ConnectionMode>(
-    isSignalREnabled() ? "offline" : "firestore"
-  );
-  const { addAlert, addUploadEvent, updateRiskProfile, addEscalation, updateAgentStatus } = useAlertStore();
+  const { addAlert, addUploadEvent, addAiEvent, addFtpEvent, addEmailEvent, updateRiskProfile, addEscalation, updateAgentStatus } = useAlertStore();
 
   useEffect(() => {
-    // If no SignalR URL configured, skip connection entirely.
-    // The app will use Firestore real-time listeners instead.
-    if (!isSignalREnabled()) {
-      setMode("firestore");
-      setIsConnected(true); // Firestore is always "connected"
-      return;
-    }
+    let cancelled = false;
+    let startTimerId: ReturnType<typeof setTimeout> | null = null;
 
     const connection = createHubConnection();
-    if (!connection) {
-      setMode("firestore");
-      setIsConnected(true);
-      return;
-    }
-
     connectionRef.current = connection;
 
-    connection.on("ReceiveAlert", (alert) => {
-      addAlert(alert);
-      if (alert.type === "Critical") {
-        toast.error(`CRITICAL: ${alert.title}`, {
-          description: alert.message,
-          duration: 10000,
-        });
-      } else if (alert.type === "Block") {
-        toast.warning(`BLOCKED: ${alert.title}`, { description: alert.message });
-      } else if (alert.type === "Warning") {
-        toast.warning(alert.title, { description: alert.message });
-      } else {
-        toast.info(alert.title);
+    connection.on("ReceiveAlert", (raw) => {
+      try {
+        const alert = parsePayload<DlpAlert>(raw);
+        addAlert(alert);
+
+        if (alert.type === "Critical") {
+          toast.error(`CRITICAL: ${alert.title}`, {
+            description: alert.message,
+            duration: 10000,
+          });
+        } else if (alert.type === "Block") {
+          toast.warning(`BLOCKED: ${alert.title}`, { description: alert.message });
+        } else if (alert.type === "Warning") {
+          toast.warning(alert.title, { description: alert.message });
+        } else {
+          toast.info(alert.title);
+        }
+
+        if (Notification.permission === "granted" && alert.type === "Critical") {
+          new Notification("DataGuard Sentinel — Critical Alert", {
+            body: alert.message,
+            icon: "/logo.svg",
+            tag: alert.alertId,
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to parse alert:", err);
       }
+    });
 
-      // Browser notification for critical alerts
-      if (Notification.permission === "granted" && alert.type === "Critical") {
-        new Notification("DataGuard Sentinel — Critical Alert", {
-          body: alert.message,
-          icon: "/logo.svg",
-          tag: alert.alertId,
-        });
+    connection.on("ReceiveUploadEvent", (raw) => {
+      try {
+        addUploadEvent(parsePayload<UploadEvent>(raw));
+      } catch (err) {
+        console.warn("Failed to parse upload event:", err);
       }
     });
 
-    connection.on("ReceiveUploadEvent", (event) => addUploadEvent(event));
-    connection.on("ReceiveRiskUpdate", (profile, brsResult) => updateRiskProfile(profile, brsResult));
-    connection.on("ReceiveEscalation", (data) => {
-      addEscalation(data);
-      toast.error(`ESCALATION: ${data.username} (BRS: ${data.brs})`, {
-        description: data.reason,
-        duration: 15000,
-      });
+    connection.on("ReceiveRiskUpdate", (profileRaw, brsRaw) => {
+      try {
+        updateRiskProfile(parsePayload(profileRaw), parsePayload(brsRaw));
+      } catch (err) {
+        console.warn("Failed to parse risk update:", err);
+      }
     });
-    connection.on("AgentStatusUpdate", (heartbeat) => updateAgentStatus(heartbeat));
-    connection.on("AgentConnected", (agentInfo) => updateAgentStatus(agentInfo));
 
-    connection.onreconnecting(() => {
-      setIsConnected(false);
-      setMode("offline");
+    connection.on("ReceiveEscalation", (raw) => {
+      try {
+        const data = parsePayload<Partial<DlpAlert> & Record<string, unknown>>(raw);
+        addEscalation(data);
+        const brs = (data as Record<string, unknown>).behavioralRiskScore ?? (data as Record<string, unknown>).brs ?? "";
+        toast.error(`ESCALATION: ${data.username} (BRS: ${brs})`, {
+          description: String((data as Record<string, unknown>).reason ?? ""),
+          duration: 15000,
+        });
+      } catch (err) {
+        console.warn("Failed to parse escalation:", err);
+      }
     });
+
+    connection.on("ReceiveAiEvent", (raw) => {
+      try {
+        const event = parsePayload<AiApplicationEvent>(raw);
+        addAiEvent(event);
+        const user = event.username || event.userId || "Unknown";
+        toast.warning(`AI Event: ${event.applicationName}`, {
+          description: `${event.eventType} detected by ${user} (Risk: ${event.riskScore})`,
+        });
+      } catch (err) {
+        console.warn("Failed to parse AI event:", err);
+      }
+    });
+
+    connection.on("ReceiveFtpEvent", (raw) => {
+      try {
+        const event = parsePayload<FtpTransferEvent>(raw);
+        addFtpEvent(event);
+        toast.warning(`FTP Event: ${event.applicationName}`, {
+          description: `${event.eventType} — ${event.remoteAddress}:${event.remotePort}`,
+        });
+      } catch (err) {
+        console.warn("Failed to parse FTP event:", err);
+      }
+    });
+
+    connection.on("ReceiveEmailEvent", (raw) => {
+      try {
+        const event = parsePayload<EmailExfiltrationEvent>(raw);
+        addEmailEvent(event);
+        toast.warning(`Email Event: ${event.applicationName}`, {
+          description: `${event.eventType} — ${event.recipient || event.subject || 'Activity detected'}`,
+        });
+      } catch (err) {
+        console.warn("Failed to parse email event:", err);
+      }
+    });
+
+    connection.on("AgentStatusUpdate", (raw) => {
+      try {
+        updateAgentStatus(parsePayload(raw));
+      } catch (err) {
+        console.warn("Failed to parse agent status:", err);
+      }
+    });
+
+    connection.on("AgentConnected", (raw) => {
+      try {
+        updateAgentStatus(parsePayload(raw));
+      } catch (err) {
+        console.warn("Failed to parse agent connection:", err);
+      }
+    });
+
+    connection.onreconnecting(() => setIsConnected(false));
     connection.onreconnected(() => {
       setIsConnected(true);
-      setMode("signalr");
       connection.invoke("JoinDashboard");
     });
-    connection.onclose(() => {
-      setIsConnected(false);
-      setMode("offline");
-    });
+    connection.onclose(() => setIsConnected(false));
 
-    connection
-      .start()
-      .then(() => {
-        setIsConnected(true);
-        setMode("signalr");
-        connection.invoke("JoinDashboard");
-      })
-      .catch((err) => {
-        console.warn("SignalR connection failed — falling back to Firestore:", err);
-        setIsConnected(true); // Firestore still works
-        setMode("firestore");
-      });
+    // Defer start slightly so React StrictMode cleanup can cancel before connection begins
+    startTimerId = setTimeout(() => {
+      if (cancelled) return;
+      connection
+        .start()
+        .then(() => {
+          if (cancelled) {
+            connection.stop();
+            return;
+          }
+          setIsConnected(true);
+          connection.invoke("JoinDashboard");
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            console.warn("SignalR connection failed:", err);
+            setIsConnected(false);
+          }
+        });
+    }, 100);
 
     return () => {
+      cancelled = true;
+      if (startTimerId) clearTimeout(startTimerId);
       connection.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,5 +195,5 @@ export function useSignalR() {
     await connectionRef.current?.invoke("PingAgent", agentId);
   }, []);
 
-  return { isConnected, mode, sendCommand, broadcastPolicy, pingAgent };
+  return { isConnected, sendCommand, broadcastPolicy, pingAgent };
 }

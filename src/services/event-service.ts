@@ -7,6 +7,8 @@ import type { UploadEvent } from "../types/upload-event";
 import type { ClipboardEvent } from "../types/clipboard-event";
 import type { RemovableMediaEvent } from "../types/removable-media-event";
 import type { AiApplicationEvent } from "../types/ai-application-event";
+import type { FtpTransferEvent } from "../types/ftp-event";
+import type { EmailExfiltrationEvent } from "../types/email-event";
 
 export interface EventFilters {
   channel?: string;
@@ -151,6 +153,48 @@ export const eventService = {
       id: d.id,
       ...d.data(),
     })) as unknown as AiApplicationEvent[];
+
+    events = clientFilter(events, filters);
+
+    return {
+      events,
+      lastDoc: snapshot.docs.length > 0 ? snapshot.docs[Math.min(pageSize - 1, snapshot.docs.length - 1)] : undefined,
+      hasMore: snapshot.docs.length > pageSize,
+    };
+  },
+
+  async getFtpEvents(
+    filters: EventFilters = {},
+    pageSize = 50,
+    lastDoc?: DocumentSnapshot
+  ): Promise<{ events: FtpTransferEvent[]; lastDoc?: DocumentSnapshot; hasMore: boolean }> {
+    const q = buildDateQuery("ftpEvents", "timestamp", filters, pageSize, lastDoc);
+    const snapshot = await getDocs(q);
+    let events = snapshot.docs.slice(0, pageSize).map((d) => ({
+      eventId: d.id,
+      ...d.data(),
+    })) as unknown as FtpTransferEvent[];
+
+    events = clientFilter(events, filters);
+
+    return {
+      events,
+      lastDoc: snapshot.docs.length > 0 ? snapshot.docs[Math.min(pageSize - 1, snapshot.docs.length - 1)] : undefined,
+      hasMore: snapshot.docs.length > pageSize,
+    };
+  },
+
+  async getEmailEvents(
+    filters: EventFilters = {},
+    pageSize = 50,
+    lastDoc?: DocumentSnapshot
+  ): Promise<{ events: EmailExfiltrationEvent[]; lastDoc?: DocumentSnapshot; hasMore: boolean }> {
+    const q = buildDateQuery("emailEvents", "timestamp", filters, pageSize, lastDoc);
+    const snapshot = await getDocs(q);
+    let events = snapshot.docs.slice(0, pageSize).map((d) => ({
+      eventId: d.id,
+      ...d.data(),
+    })) as unknown as EmailExfiltrationEvent[];
 
     events = clientFilter(events, filters);
 

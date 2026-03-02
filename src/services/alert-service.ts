@@ -1,6 +1,6 @@
 import {
   collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit, startAfter,
-  Timestamp, DocumentSnapshot, type QueryConstraint
+  onSnapshot, Timestamp, DocumentSnapshot, type QueryConstraint, type Unsubscribe
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import type { DlpAlert } from "../types/dlp-alert";
@@ -20,8 +20,6 @@ export const alertService = {
     pageSize = 50,
     lastDoc?: DocumentSnapshot
   ): Promise<{ alerts: DlpAlert[]; lastDoc?: DocumentSnapshot; hasMore: boolean }> {
-    // Only add orderBy when date filters are present (avoids composite index requirement
-    // and prevents silent exclusion of docs missing the timestamp field)
     const constraints: QueryConstraint[] = [];
 
     if (filters.startDate) {
@@ -30,9 +28,8 @@ export const alertService = {
     if (filters.endDate) {
       constraints.push(where("timestamp", "<=", Timestamp.fromDate(filters.endDate)));
     }
-    if (filters.startDate || filters.endDate) {
-      constraints.push(orderBy("timestamp", "desc"));
-    }
+    // Always sort by timestamp descending so newest alerts appear first
+    constraints.push(orderBy("timestamp", "desc"));
     constraints.push(limit(pageSize + 1));
     if (lastDoc) {
       constraints.push(startAfter(lastDoc));
@@ -44,6 +41,8 @@ export const alertService = {
     let alerts = snapshot.docs.slice(0, pageSize).map((d) => ({
       alertId: d.id,
       ...d.data(),
+      // Ensure isEscalation defaults to false if not set in Firestore
+      isEscalation: d.data().isEscalation ?? false,
     })) as DlpAlert[];
 
     // Client-side filtering
@@ -61,7 +60,13 @@ export const alertService = {
 
   async getAlertById(alertId: string): Promise<DlpAlert | null> {
     const docSnap = await getDoc(doc(db, "alerts", alertId));
-    return docSnap.exists() ? ({ alertId: docSnap.id, ...docSnap.data() } as DlpAlert) : null;
+    if (!docSnap.exists()) return null;
+    const data = docSnap.data();
+    return {
+      alertId: docSnap.id,
+      ...data,
+      isEscalation: data.isEscalation ?? false,
+    } as DlpAlert;
   },
 
   async resolveAlert(
@@ -118,5 +123,52 @@ export const alertService = {
       critical: alerts.filter((a) => a.type === "Critical").length,
       escalations: alerts.filter((a) => a.isEscalation).length,
     };
+  },
+
+  /**
+   * Subscribe to real-time alert updates from Firestore.
+   * Returns an unsubscribe function to stop listening.
+   */
+  subscribeToAlerts(
+    onNewAlert: (alert: DlpAlert) => void,
+    onUpdate: (alerts: DlpAlert[]) => void,
+    limitCount = 50
+  ): Unsubscribe {
+    const q = query(
+      collection(db, "alerts"),
+      orderBy("timestamp", "desc"),
+      limit(limitCount)
+    );
+
+    let isFirstSnapshot = true;
+
+    return onSnapshot(q, (snapshot) => {
+      const allAlerts = snapshot.docs.map((d) => ({
+        alertId: d.id,
+        ...d.data(),
+        isEscalation: d.data().isEscalation ?? false,
+      })) as DlpAlert[];
+
+      // On first load, just send all alerts
+      if (isFirstSnapshot) {
+        isFirstSnapshot = false;
+        onUpdate(allAlerts);
+        return;
+      }
+
+      // On subsequent updates, notify about new documents
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const alert = {
+            alertId: change.doc.id,
+            ...change.doc.data(),
+            isEscalation: change.doc.data().isEscalation ?? false,
+          } as DlpAlert;
+          onNewAlert(alert);
+        }
+      });
+
+      onUpdate(allAlerts);
+    });
   },
 };

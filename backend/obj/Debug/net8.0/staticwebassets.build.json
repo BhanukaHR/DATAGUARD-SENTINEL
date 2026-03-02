@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "9RyalV0Bk1iNQAqH2hRjdnNfT129L+9js8JPP5XmhwU=",
+  "Source": "DataGuard.HubServer",
+  "BasePath": "_content/DataGuard.HubServer",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

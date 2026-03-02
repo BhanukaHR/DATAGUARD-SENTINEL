@@ -1,0 +1,6 @@
+@DataGuard.HubServer_HostAddress = http://localhost:5025
+
+GET {{DataGuard.HubServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
