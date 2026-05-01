@@ -2,6 +2,7 @@ import { DashboardCredentialsForm } from "../components/settings/DashboardCreden
 import { AgentAdminManager } from "../components/settings/AgentAdminManager";
 import { DeleteDataSection } from "../components/settings/DeleteDataSection";
 import { useAuthStore } from "../store/auth-store";
+import { ENV } from "../config/environment";
 import { Settings } from "lucide-react";
 
 export function SettingsPage() {
@@ -57,7 +58,7 @@ export function SettingsPage() {
           <dt className="text-slate-500">Firebase Project</dt>
           <dd className="font-mono text-xs text-slate-700">{import.meta.env.VITE_FIREBASE_PROJECT_ID || "dataguard-sentinel"}</dd>
           <dt className="text-slate-500">SignalR Hub</dt>
-          <dd className="font-mono text-xs text-slate-700">{import.meta.env.VITE_SIGNALR_HUB_URL || "Not configured"}</dd>
+          <dd className="font-mono text-xs text-slate-700">{ENV.SIGNALR_HUB_URL}</dd>
           <dt className="text-slate-500">App Version</dt>
           <dd className="text-slate-700">{import.meta.env.VITE_APP_VERSION || "1.0.0"}</dd>
         </dl>

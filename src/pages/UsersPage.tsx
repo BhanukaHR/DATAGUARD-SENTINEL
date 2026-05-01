@@ -53,17 +53,17 @@ export function UsersPage() {
           className="text-sm text-blue-600 hover:underline font-medium text-left"
           onClick={() => navigate(`/users/${info.row.original.userId}`)}
         >
-          {info.getValue()}
+          {info.getValue() || "Unknown"}
         </button>
       ),
     }),
     columnHelper.accessor("employeeId", {
       header: "Employee ID",
-      cell: (info) => <span className="font-mono text-sm">{info.getValue()}</span>,
+      cell: (info) => <span className="font-mono text-sm">{info.getValue() || "—"}</span>,
     }),
     columnHelper.accessor("machineName", {
       header: "Machine",
-      cell: (info) => <span className="text-xs text-slate-600">{info.getValue()}</span>,
+      cell: (info) => <span className="text-xs text-slate-600">{info.getValue() || "—"}</span>,
     }),
     columnHelper.accessor("status", {
       header: "Status",
@@ -73,7 +73,7 @@ export function UsersPage() {
       header: "Registered",
       cell: (info) => (
         <span className="text-xs text-slate-500">
-          {formatDate(info.getValue() instanceof Date ? info.getValue() : new Date(info.getValue() as string))}
+          {formatDate(info.getValue())}
         </span>
       ),
     }),
@@ -110,10 +110,15 @@ export function UsersPage() {
   const filteredUsers = useMemo(() => {
     const users = usersData?.users || [];
     return users.filter((user) => {
+      const username = (user.username || "").toLowerCase();
+      const employeeId = (user.employeeId || "").toLowerCase();
+      const machineName = (user.machineName || "").toLowerCase();
+      const userId = (user.userId || "").toLowerCase();
       const matchesSearch = !searchTerm ||
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.machineName.toLowerCase().includes(searchTerm.toLowerCase());
+        username.includes(searchTerm.toLowerCase()) ||
+        employeeId.includes(searchTerm.toLowerCase()) ||
+        machineName.includes(searchTerm.toLowerCase()) ||
+        userId.includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === "all" || user.status === statusFilter;
       return matchesSearch && matchesStatus;
     });

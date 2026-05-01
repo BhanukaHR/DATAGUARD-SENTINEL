@@ -1,12 +1,16 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { eventService } from "../services/event-service";
+import { alertService } from "../services/alert-service";
+import { useAlertStore } from "../store/alert-store";
 import { DataTable } from "../components/common/DataTable";
 import { SensitivityBadge, ChannelBadge, BooleanBadge } from "../components/common/Badges";
 import { formatDate } from "../utils/formatters";
 import { createColumnHelper } from "@tanstack/react-table";
 import type { UploadEvent } from "../types/upload-event";
 import { Upload } from "lucide-react";
+import { UploadChannel } from "../types/enums";
+import { deriveUploadEventFromAlert } from "../utils/event-derivers";
 
 const columnHelper = createColumnHelper<UploadEvent>();
 
@@ -19,6 +23,13 @@ export function UploadEventsPage() {
     queryKey: ["uploadEvents"],
     queryFn: () => eventService.getUploadEvents({}),
   });
+
+  const { data: uploadAlertData } = useQuery({
+    queryKey: ["uploadEventAlerts"],
+    queryFn: () => alertService.getAlerts({}), // Get ALL alerts, not just FileSystem
+  });
+
+  const liveUploadEvents = useAlertStore((s) => s.liveUploadEvents);
 
   const columns = useMemo(() => [
     columnHelper.accessor("timestamp", {
@@ -65,20 +76,45 @@ export function UploadEventsPage() {
 
   const filteredEvents = useMemo(() => {
     const events = data?.events || [];
-    return events.filter((e) => {
+    // Include alerts that are file-related: have fileName, OR title with file extension, OR mention "upload", "attachment", "file"
+    const fileAlerts = (uploadAlertData?.alerts || []).filter(
+      (a) => {
+        const hasFileName = !!a.fileName;
+        const hasFileExtension = a.title && /\.(doc|docx|pdf|xls|xlsx|csv|txt|zip|png|jpg|jpeg|gif|mp4|mov|avi|mkv|ppt|pptx|exe|dll|json|xml|sql|db|sqlite)$/i.test(a.title);
+        const isFileOperation = a.title && /upload|attachment|file|document|send|transfer/i.test(a.title);
+        const isFileMessage = a.message && /upload|attachment|file|document|send|transfer/i.test(a.message);
+        
+        return hasFileName || hasFileExtension || isFileOperation || isFileMessage;
+      }
+    );
+    const derivedEvents = fileAlerts.map(deriveUploadEventFromAlert);
+    const allEvents = [...liveUploadEvents, ...events, ...derivedEvents];
+    const seen = new Set<string>();
+    const mergedEvents = allEvents.filter((event) => {
+      if (!event.eventId || seen.has(event.eventId)) return false;
+      seen.add(event.eventId);
+      return true;
+    });
+
+    return mergedEvents.filter((e) => {
       if (channelFilter !== "all" && e.channel !== channelFilter) return false;
       if (sensitivityFilter !== "all" && e.sensitivityLevel !== sensitivityFilter) return false;
       if (blockedFilter === "blocked" && !e.isBlocked) return false;
       if (blockedFilter === "allowed" && e.isBlocked) return false;
       return true;
     });
-  }, [data, channelFilter, sensitivityFilter, blockedFilter]);
+  }, [data, liveUploadEvents, uploadAlertData, channelFilter, sensitivityFilter, blockedFilter]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Upload className="h-6 w-6 text-slate-700" />
         <h1 className="text-2xl font-semibold text-slate-900">Upload Events</h1>
+        {liveUploadEvents.length > 0 && (
+          <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+            {liveUploadEvents.length} live
+          </span>
+        )}
       </div>
 
       {/* Filters */}
@@ -91,6 +127,7 @@ export function UploadEventsPage() {
           <option value="FTP">FTP</option>
           <option value="Email">Email</option>
           <option value="EnterpriseApp">Enterprise App</option>
+          <option value={UploadChannel.FileSystem}>File System</option>
         </select>
         <select value={sensitivityFilter} onChange={(e) => setSensitivityFilter(e.target.value)}
           className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white">

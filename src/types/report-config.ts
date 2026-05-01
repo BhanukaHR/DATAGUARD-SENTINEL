@@ -23,6 +23,8 @@ export interface ReportConfig {
     department?: string;
     userId?: string;
     channel?: string;
+    action?: string;
+    search?: string;
     riskLevel?: string;
     sensitivityLevel?: string;
   };

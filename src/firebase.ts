@@ -1,7 +1,3 @@
-// Initialize Firebase client SDK and export helpers.
-// Replace the config values with those from your Firebase console or
-// store them in environment variables (e.g. in a .env file).
-
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -15,7 +11,6 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// guard against re-initialization in dev/hot reload
 let firebaseApp;
 if (!getApps().length) {
   firebaseApp = initializeApp(firebaseConfig);

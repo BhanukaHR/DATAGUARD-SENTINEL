@@ -19,7 +19,6 @@ export function AiEventsPage() {
 
   const liveAiEvents = useAlertStore((s) => s.liveAiEvents);
 
-  // Merge live SignalR events with Firestore events, deduplicate by eventId
   const mergedEvents = useMemo(() => {
     const firestoreEvents = data?.events || [];
     const all = [...liveAiEvents, ...firestoreEvents];

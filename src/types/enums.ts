@@ -5,6 +5,7 @@ export const UploadChannel = {
   FTP: "FTP",
   Email: "Email",
   EnterpriseApp: "EnterpriseApp",
+  FileSystem: "FileSystem",
   USB: "USB",
   Clipboard: "Clipboard",
   AI: "AI",

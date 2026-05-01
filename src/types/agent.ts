@@ -2,6 +2,7 @@ export interface AgentHeartbeat {
   agentId: string;
   machineName: string;
   organizationId: string;
+  endpointUniqueId?: string;
   lastHeartbeat: Date | string;
   status: "online" | "offline" | "warning";
   scanCount: number;

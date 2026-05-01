@@ -14,6 +14,8 @@ import { BlockedAllowedChart } from "../components/charts/BlockedAllowedChart";
 import { SensitivityBarChart } from "../components/charts/SensitivityBarChart";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { Activity, MonitorCheck, AlertTriangle, ShieldOff, Users, BarChart3 } from "lucide-react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../config/firebase";
 import type { UserRiskProfile } from "../types/user-risk-profile";
 
 export function DashboardPage() {
@@ -28,18 +30,14 @@ export function DashboardPage() {
   const { data: riskProfiles } = useQuery<UserRiskProfile[]>({
     queryKey: ["riskProfiles"],
     queryFn: async () => {
-      const { getDocs, collection } = await import("firebase/firestore");
-      const { db } = await import("../config/firebase");
       const [riskSnap, usersSnap] = await Promise.all([
         getDocs(collection(db, "riskProfiles")),
         getDocs(collection(db, "users")),
       ]);
 
-      // Map machine name → user document ID so navigation uses the correct ID
       const machineToUserId = new Map<string, string>();
       usersSnap.docs.forEach((d) => {
         const raw = d.data();
-        // Normalise PascalCase keys from C# agent
         const machineName = raw.machineName || raw.MachineName;
         if (machineName) {
           machineToUserId.set(machineName, d.id);
@@ -48,7 +46,6 @@ export function DashboardPage() {
 
       return riskSnap.docs.map((d) => {
         const raw = d.data();
-        // Normalise PascalCase keys to camelCase
         const normalized: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(raw)) {
           const camel = key.charAt(0).toLowerCase() + key.slice(1);

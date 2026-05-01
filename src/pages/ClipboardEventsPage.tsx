@@ -1,12 +1,15 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { eventService } from "../services/event-service";
+import { alertService } from "../services/alert-service";
+import { useAlertStore } from "../store/alert-store";
 import { DataTable } from "../components/common/DataTable";
 import { BooleanBadge } from "../components/common/Badges";
 import { formatDate } from "../utils/formatters";
 import { createColumnHelper } from "@tanstack/react-table";
 import type { ClipboardEvent } from "../types/clipboard-event";
 import { ClipboardList } from "lucide-react";
+import { deriveClipboardEventFromAlert } from "../utils/event-derivers";
 
 const columnHelper = createColumnHelper<ClipboardEvent>();
 
@@ -15,6 +18,26 @@ export function ClipboardEventsPage() {
     queryKey: ["clipboardEvents"],
     queryFn: () => eventService.getClipboardEvents({}),
   });
+
+  const { data: clipboardAlertData } = useQuery({
+    queryKey: ["clipboardEventAlerts"],
+    queryFn: () => alertService.getAlerts({ channel: "Clipboard" }),
+  });
+
+  const liveClipboardEvents = useAlertStore((s) => s.liveClipboardEvents || []);
+
+  const mergedEvents = useMemo(() => {
+    const firestoreEvents = data?.events || [];
+    const derivedEvents = (clipboardAlertData?.alerts || []).map(deriveClipboardEventFromAlert);
+    const all = [...liveClipboardEvents, ...firestoreEvents, ...derivedEvents];
+    const seen = new Set<string>();
+    return all.filter((e) => {
+      const id = e.eventId;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [data?.events, liveClipboardEvents, clipboardAlertData]);
 
   const columns = useMemo(() => [
     columnHelper.accessor("timestamp", {
@@ -72,8 +95,13 @@ export function ClipboardEventsPage() {
       <div className="flex items-center gap-3">
         <ClipboardList className="h-6 w-6 text-slate-700" />
         <h1 className="text-2xl font-semibold text-slate-900">Clipboard Events</h1>
+        {liveClipboardEvents.length > 0 && (
+          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+            {liveClipboardEvents.length} live
+          </span>
+        )}
       </div>
-      <DataTable columns={columns} data={data?.events || []} isLoading={isLoading} />
+      <DataTable columns={columns} data={mergedEvents} isLoading={isLoading} />
     </div>
   );
 }

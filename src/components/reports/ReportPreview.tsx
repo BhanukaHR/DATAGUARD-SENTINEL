@@ -25,6 +25,7 @@ export function ReportPreview({ config, data }: Props) {
   const clipboard: R[] = data?.clipboard || [];
   const usb: R[] = data?.usb || [];
   const alerts: R[] = data?.alerts || [];
+  const auditLogs: R[] = data?.auditLogs || [];
   const rawRP = data?.riskProfiles;
   const riskProfiles: R[] = (rawRP && !Array.isArray(rawRP) && rawRP.docs)
     ? rawRP.docs.map((d) => d.data())
@@ -165,6 +166,46 @@ export function ReportPreview({ config, data }: Props) {
             Unresolved: {alerts.filter((a: R) => !a.isResolved).length} |
             Escalations: {alerts.filter((a: R) => a.isEscalation).length}
           </p>
+        </section>
+      )}
+
+      {/* Audit Log Summary */}
+      {config.sections.auditLogSummary && (
+        <section>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4 border-b pb-2">Audit Log Summary</h2>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <SummaryCard label="Total Logs" value={formatNumber(auditLogs.length)} />
+            <SummaryCard label="Unique Users" value={formatNumber(new Set(auditLogs.map((l: R) => l.userId)).size)} />
+            <SummaryCard label="High Risk" value={formatNumber(auditLogs.filter((l: R) => (l.riskScore || 0) >= 70).length)} />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border border-slate-200 text-xs">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="border border-slate-200 px-3 py-2 text-left">Time</th>
+                  <th className="border border-slate-200 px-3 py-2 text-left">User</th>
+                  <th className="border border-slate-200 px-3 py-2 text-left">Action</th>
+                  <th className="border border-slate-200 px-3 py-2 text-left">Channel</th>
+                  <th className="border border-slate-200 px-3 py-2 text-left">Target</th>
+                  <th className="border border-slate-200 px-3 py-2 text-left">Risk</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.slice(0, 25).map((l: R, i: number) => (
+                  <tr key={i}>
+                    <td className="border border-slate-200 px-3 py-1.5">
+                      {l.timestamp ? new Date(String(l.timestamp)).toLocaleString() : "—"}
+                    </td>
+                    <td className="border border-slate-200 px-3 py-1.5">{l.userId || l.username || "—"}</td>
+                    <td className="border border-slate-200 px-3 py-1.5">{l.action}</td>
+                    <td className="border border-slate-200 px-3 py-1.5">{l.channel}</td>
+                    <td className="border border-slate-200 px-3 py-1.5">{l.target}</td>
+                    <td className="border border-slate-200 px-3 py-1.5">{l.riskScore ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 

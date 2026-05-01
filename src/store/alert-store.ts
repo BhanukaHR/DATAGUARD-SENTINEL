@@ -4,6 +4,8 @@ import type { UploadEvent } from "../types/upload-event";
 import type { AiApplicationEvent } from "../types/ai-application-event";
 import type { FtpTransferEvent } from "../types/ftp-event";
 import type { EmailExfiltrationEvent } from "../types/email-event";
+import type { RemovableMediaEvent } from "../types/removable-media-event";
+import type { ClipboardEvent } from "../types/clipboard-event";
 
 interface AlertState {
   liveAlerts: DlpAlert[];
@@ -11,12 +13,16 @@ interface AlertState {
   liveAiEvents: AiApplicationEvent[];
   liveFtpEvents: FtpTransferEvent[];
   liveEmailEvents: EmailExfiltrationEvent[];
+  liveUsbEvents: RemovableMediaEvent[];
+  liveClipboardEvents: ClipboardEvent[];
   unreadCount: number;
   addAlert: (alert: DlpAlert) => void;
   addUploadEvent: (event: UploadEvent) => void;
   addAiEvent: (event: AiApplicationEvent) => void;
   addFtpEvent: (event: FtpTransferEvent) => void;
   addEmailEvent: (event: EmailExfiltrationEvent) => void;
+  addUsbEvent: (event: RemovableMediaEvent) => void;
+  addClipboardEvent: (event: ClipboardEvent) => void;
   updateRiskProfile: (profile: Record<string, unknown>, brsResult: Record<string, unknown>) => void;
   addEscalation: (data: Partial<DlpAlert>) => void;
   updateAgentStatus: (heartbeat: Record<string, unknown>) => void;
@@ -30,6 +36,8 @@ export const useAlertStore = create<AlertState>((set) => ({
   liveAiEvents: [],
   liveFtpEvents: [],
   liveEmailEvents: [],
+  liveUsbEvents: [],
+  liveClipboardEvents: [],
   unreadCount: 0,
 
   addAlert: (alert) =>
@@ -56,6 +64,16 @@ export const useAlertStore = create<AlertState>((set) => ({
   addEmailEvent: (event) =>
     set((state) => ({
       liveEmailEvents: [event, ...state.liveEmailEvents].slice(0, 100),
+    })),
+
+  addUsbEvent: (event) =>
+    set((state) => ({
+      liveUsbEvents: [event, ...state.liveUsbEvents].slice(0, 100),
+    })),
+
+  addClipboardEvent: (event) =>
+    set((state) => ({
+      liveClipboardEvents: [event, ...state.liveClipboardEvents].slice(0, 100),
     })),
 
   updateRiskProfile: () => {},

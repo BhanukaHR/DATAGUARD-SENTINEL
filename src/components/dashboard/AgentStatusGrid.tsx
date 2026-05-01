@@ -28,7 +28,7 @@ export function AgentStatusGrid({ agents }: AgentStatusGridProps) {
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-800 truncate">{agent.machineName}</p>
                   <p className="text-[10px] text-slate-500">
-                    {agent.lastHeartbeat ? formatTimeAgo(toDate(agent.lastHeartbeat)) : "—"}
+                    {formatTimeAgo(agent.lastHeartbeat)}
                   </p>
                 </div>
               </div>

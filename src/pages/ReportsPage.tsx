@@ -45,7 +45,10 @@ const DEFAULT_CONFIG: ReportConfig = {
     auditLogSummary: true,
     policyViolations: true,
   },
-  filters: {},
+  filters: {
+    action: "",
+    search: "",
+  },
   format: "pdf",
   pdfOptions: {
     includeCharts: true,
@@ -81,12 +84,13 @@ export function ReportsPage() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
+      const exportData = reportData || await reportService.fetchReportData(config);
       if ((config.format === "pdf" || config.format === "both") && reportRef.current) {
         const pdfBlob = await reportService.generatePdf(config, reportRef.current);
         downloadBlob(pdfBlob, `DataGuard-Report-${config.month || "custom"}.pdf`);
       }
-      if ((config.format === "csv" || config.format === "both") && reportData) {
-        const csvBlob = await reportService.generateCsv(config, reportData);
+      if (config.format === "csv" || config.format === "both") {
+        const csvBlob = await reportService.generateCsv(config, exportData);
         downloadBlob(csvBlob, `DataGuard-Report-${config.month || "custom"}.xlsx`);
       }
       toast.success("Report generated successfully");
@@ -181,6 +185,61 @@ export function ReportsPage() {
                 {label}
               </label>
             ))}
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div>
+          <h3 className="text-sm font-medium text-slate-900 mb-3">Filters (Audit Logs)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-slate-500">User ID</label>
+              <input
+                value={config.filters.userId || ""}
+                onChange={(e) => setConfig((p) => ({
+                  ...p,
+                  filters: { ...p.filters, userId: e.target.value },
+                }))}
+                placeholder="user123"
+                className="mt-1 block w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Channel</label>
+              <input
+                value={config.filters.channel || ""}
+                onChange={(e) => setConfig((p) => ({
+                  ...p,
+                  filters: { ...p.filters, channel: e.target.value },
+                }))}
+                placeholder="Email, USB, Browser"
+                className="mt-1 block w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Action</label>
+              <input
+                value={config.filters.action || ""}
+                onChange={(e) => setConfig((p) => ({
+                  ...p,
+                  filters: { ...p.filters, action: e.target.value },
+                }))}
+                placeholder="UploadBlocked"
+                className="mt-1 block w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Search</label>
+              <input
+                value={config.filters.search || ""}
+                onChange={(e) => setConfig((p) => ({
+                  ...p,
+                  filters: { ...p.filters, search: e.target.value },
+                }))}
+                placeholder="target, details, username"
+                className="mt-1 block w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md"
+              />
+            </div>
           </div>
         </div>
 

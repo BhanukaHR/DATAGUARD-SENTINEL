@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DataGuard.HubServer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fc1029f2e65cd79547976709b01fb7c032bfc48c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+58f7a53c6dc4d73f36f504bc6c373bf7a2429ac0")]
 [assembly: System.Reflection.AssemblyProductAttribute("DataGuard.HubServer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DataGuard.HubServer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

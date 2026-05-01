@@ -37,7 +37,11 @@ export function AgentsPage() {
     }),
     columnHelper.accessor("agentId", {
       header: "Agent ID",
-      cell: (info) => <span className="font-mono text-xs text-slate-500">{info.getValue()}</span>,
+      cell: (info) => (
+        <span className="font-mono text-xs text-slate-500">
+          {info.getValue() || info.row.original.endpointUniqueId || "—"}
+        </span>
+      ),
     }),
     columnHelper.accessor("status", {
       header: "Status",
@@ -63,7 +67,7 @@ export function AgentsPage() {
       header: "Last Heartbeat",
       cell: (info) => (
         <span className="text-xs text-slate-500">
-          {formatTimeAgo(info.getValue() instanceof Date ? info.getValue() : new Date(info.getValue() as string))}
+          {formatTimeAgo(info.getValue())}
         </span>
       ),
     }),

@@ -1,6 +1,14 @@
 using DataGuard.HubServer.Hubs;
+using DataGuard.HubServer.Services;
+using Google.Cloud.Firestore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Firestore ──────────────────────────────────────────────────────────
+var firestoreProject = builder.Configuration["Firestore:Project"] ?? "dataguard-sentinel";
+var firestoreDb = FirestoreDb.Create(firestoreProject);
+builder.Services.AddSingleton(firestoreDb);
+builder.Services.AddScoped<PersistenceService>();
 
 // ── CORS — allow the React dashboard ──────────────────────────────────
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()

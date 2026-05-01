@@ -26,6 +26,11 @@ function normalizeDoc(raw: Record<string, any>): Record<string, any> {
     result[camel] = value;
     if (camel !== key) result[key] = value;
   }
+  if (!result.username && result.userName) result.username = result.userName;
+  if (!result.employeeId && result.employeeID) result.employeeId = result.employeeID;
+  if (!result.machineName && result.machine) result.machineName = result.machine;
+  if (!result.registeredAt && result.registeredOn) result.registeredAt = result.registeredOn;
+  if (!result.registeredAt && result.createdAt) result.registeredAt = result.createdAt;
   return result;
 }
 

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { eventService } from "../services/event-service";
+import { alertService } from "../services/alert-service";
 import { useAlertStore } from "../store/alert-store";
 import { DataTable } from "../components/common/DataTable";
 import { BooleanBadge, SensitivityBadge } from "../components/common/Badges";
@@ -8,6 +9,7 @@ import { formatDate } from "../utils/formatters";
 import { createColumnHelper } from "@tanstack/react-table";
 import type { FtpTransferEvent } from "../types/ftp-event";
 import { FolderUp } from "lucide-react";
+import { deriveFtpEventFromAlert } from "../utils/event-derivers";
 
 const columnHelper = createColumnHelper<FtpTransferEvent>();
 
@@ -17,12 +19,17 @@ export function FtpEventsPage() {
     queryFn: () => eventService.getFtpEvents({}),
   });
 
+  const { data: ftpAlertData } = useQuery({
+    queryKey: ["ftpEventAlerts"],
+    queryFn: () => alertService.getAlerts({ channel: "Ftp" }),
+  });
+
   const liveFtpEvents = useAlertStore((s) => s.liveFtpEvents);
 
-  // Merge live SignalR events with Firestore events, deduplicate by eventId
   const mergedEvents = useMemo(() => {
     const firestoreEvents = data?.events || [];
-    const all = [...liveFtpEvents, ...firestoreEvents];
+    const derivedEvents = (ftpAlertData?.alerts || []).map(deriveFtpEventFromAlert);
+    const all = [...liveFtpEvents, ...firestoreEvents, ...derivedEvents];
     const seen = new Set<string>();
     return all.filter((e) => {
       const id = e.eventId;
@@ -30,7 +37,7 @@ export function FtpEventsPage() {
       seen.add(id);
       return true;
     });
-  }, [liveFtpEvents, data?.events]);
+  }, [liveFtpEvents, data?.events, ftpAlertData]);
 
   const columns = useMemo(() => [
     columnHelper.accessor("timestamp", {

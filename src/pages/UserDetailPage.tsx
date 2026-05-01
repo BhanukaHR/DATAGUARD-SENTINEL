@@ -98,7 +98,7 @@ export function UserDetailPage() {
               <StatusBadge status={user.status} />
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Registered: {formatDate(user.registeredAt instanceof Date ? user.registeredAt : new Date(user.registeredAt as string))}
+              Registered: {formatDate(user.registeredAt)}
             </p>
           </div>
           <div className="flex gap-2">
@@ -168,7 +168,7 @@ export function UserDetailPage() {
               </div>
               <span className="text-xs text-slate-500">
                 {riskProfile?.lastUploadTime
-                  ? formatDate(riskProfile.lastUploadTime instanceof Date ? riskProfile.lastUploadTime : new Date(riskProfile.lastUploadTime as string))
+                  ? formatDate(riskProfile.lastUploadTime)
                   : "Never"}
               </span>
             </div>

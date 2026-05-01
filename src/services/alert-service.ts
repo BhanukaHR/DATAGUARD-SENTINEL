@@ -28,7 +28,6 @@ export const alertService = {
     if (filters.endDate) {
       constraints.push(where("timestamp", "<=", Timestamp.fromDate(filters.endDate)));
     }
-    // Always sort by timestamp descending so newest alerts appear first
     constraints.push(orderBy("timestamp", "desc"));
     constraints.push(limit(pageSize + 1));
     if (lastDoc) {
@@ -41,11 +40,9 @@ export const alertService = {
     let alerts = snapshot.docs.slice(0, pageSize).map((d) => ({
       alertId: d.id,
       ...d.data(),
-      // Ensure isEscalation defaults to false if not set in Firestore
       isEscalation: d.data().isEscalation ?? false,
     })) as DlpAlert[];
 
-    // Client-side filtering
     if (filters.type) alerts = alerts.filter((a) => a.type === filters.type);
     if (filters.channel) alerts = alerts.filter((a) => a.channel === filters.channel);
     if (filters.isResolved !== undefined) alerts = alerts.filter((a) => a.isResolved === filters.isResolved);

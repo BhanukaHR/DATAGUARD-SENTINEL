@@ -184,7 +184,6 @@ export const authService = {
         const snapshot = await getDocs(collection(db, colName));
         let count = 0;
 
-        // Firestore batches support max 500 operations
         const batchSize = 450;
         let batch = writeBatch(db);
         let batchCount = 0;

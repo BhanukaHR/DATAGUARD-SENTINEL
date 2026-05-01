@@ -8,15 +8,15 @@ import type { UploadEvent } from "../types/upload-event";
 import type { AiApplicationEvent } from "../types/ai-application-event";
 import type { FtpTransferEvent } from "../types/ftp-event";
 import type { EmailExfiltrationEvent } from "../types/email-event";
+import type { RemovableMediaEvent } from "../types/removable-media-event";
+import type { ClipboardEvent } from "../types/clipboard-event";
 
 function parsePayload<T = Record<string, unknown>>(raw: unknown): T {
   const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
-  // Normalise first-char-uppercase keys to camelCase
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     const camel = key.charAt(0).toLowerCase() + key.slice(1);
     result[camel] = value;
-    // Keep original key too so both casings work
     if (camel !== key) result[key] = value;
   }
   return result as T;
@@ -25,7 +25,7 @@ function parsePayload<T = Record<string, unknown>>(raw: unknown): T {
 export function useSignalR() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { addAlert, addUploadEvent, addAiEvent, addFtpEvent, addEmailEvent, updateRiskProfile, addEscalation, updateAgentStatus } = useAlertStore();
+  const { addAlert, addUploadEvent, addAiEvent, addFtpEvent, addEmailEvent, addUsbEvent, addClipboardEvent, updateRiskProfile, addEscalation, updateAgentStatus } = useAlertStore();
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +131,30 @@ export function useSignalR() {
       }
     });
 
+    connection.on("ReceiveUsbEvent", (raw) => {
+      try {
+        const event = parsePayload<RemovableMediaEvent>(raw);
+        addUsbEvent(event);
+        toast.warning(`USB Event: ${event.volumeLabel}`, {
+          description: `${event.fileName} — ${event.driveLetter}`,
+        });
+      } catch (err) {
+        console.warn("Failed to parse USB event:", err);
+      }
+    });
+
+    connection.on("ReceiveClipboardEvent", (raw) => {
+      try {
+        const event = parsePayload<ClipboardEvent>(raw);
+        addClipboardEvent(event);
+        toast.warning(`Clipboard Event: ${event.sourceProcess}`, {
+          description: `${event.contentLength} bytes copied`,
+        });
+      } catch (err) {
+        console.warn("Failed to parse clipboard event:", err);
+      }
+    });
+
     connection.on("AgentStatusUpdate", (raw) => {
       try {
         updateAgentStatus(parsePayload(raw));
@@ -154,7 +178,6 @@ export function useSignalR() {
     });
     connection.onclose(() => setIsConnected(false));
 
-    // Defer start slightly so React StrictMode cleanup can cancel before connection begins
     startTimerId = setTimeout(() => {
       if (cancelled) return;
       connection

@@ -64,8 +64,19 @@ export const reportService = {
       getDocs(collection(db, "agents")),
       queryByRange("auditLogs"),
     ]);
+    let filteredAuditLogs = auditLogs;
+    if (config.filters.action) {
+      filteredAuditLogs = filteredAuditLogs.filter((l: ReportRecord) => String(l.action) === config.filters.action);
+    }
+    if (config.filters.search) {
+      const q = config.filters.search.toLowerCase();
+      filteredAuditLogs = filteredAuditLogs.filter((l: ReportRecord) => {
+        const hay = `${l.target || ""} ${l.details || ""} ${l.userId || ""} ${l.username || ""}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
 
-    return { uploads, clipboard, usb, alerts, riskProfiles, agents, auditLogs };
+    return { uploads, clipboard, usb, alerts, riskProfiles, agents, auditLogs: filteredAuditLogs };
   },
 
   async generatePdf(config: ReportConfig, previewElement: HTMLElement): Promise<Blob> {
@@ -179,6 +190,21 @@ export const reportService = {
       }));
       const ws = xlsxUtils.json_to_sheet(wsData);
       xlsxUtils.book_append_sheet(workbook, ws, "Alerts");
+    }
+
+    if (config.sections.auditLogSummary && data.auditLogs) {
+      const wsData = data.auditLogs.map((l: ReportRecord) => ({
+        Timestamp: l.timestamp,
+        User: l.userId,
+        Username: l.username,
+        Action: l.action,
+        Channel: l.channel,
+        Target: l.target,
+        Details: l.details,
+        RiskScore: l.riskScore,
+      }));
+      const ws = xlsxUtils.json_to_sheet(wsData);
+      xlsxUtils.book_append_sheet(workbook, ws, "Audit Logs");
     }
 
     if (config.sections.userRiskProfiles && data.riskProfiles) {

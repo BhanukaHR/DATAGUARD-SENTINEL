@@ -21,11 +21,9 @@ export function AlertsPage() {
   const [resolvedFilter, setResolvedFilter] = useState<string>("all");
   const [realtimeAlerts, setRealtimeAlerts] = useState<DlpAlert[]>([]);
 
-  // Real-time Firestore subscription — picks up alerts even when SignalR is down
   useEffect(() => {
     const unsubscribe = alertService.subscribeToAlerts(
       (newAlert) => {
-        // Push new alerts to the live feed + show toast
         addAlert(newAlert);
         if (newAlert.type === "Critical") {
           toast.error(`CRITICAL: ${newAlert.title}`, {
@@ -123,9 +121,7 @@ export function AlertsPage() {
 
   const allAlerts = useMemo(() => {
     const firestoreAlerts = alertsData?.alerts || [];
-    // Merge: realtime Firestore listener > live SignalR > initial query fetch
     const combined = [...liveAlerts, ...realtimeAlerts, ...firestoreAlerts];
-    // Deduplicate by alertId, keeping the first occurrence (newest source wins)
     const seen = new Set<string>();
     return combined.filter((a) => {
       if (seen.has(a.alertId)) return false;

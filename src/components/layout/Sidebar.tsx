@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Bell, Upload, ClipboardList, Usb, Bot,
-  Users, Monitor, ScrollText, BarChart3, Shield, Settings, Mail, FolderUp
+  Users, Monitor, ScrollText, BarChart3, Shield, Settings, Mail, FolderUp, FileText
 } from "lucide-react";
 import { useAlertStore } from "../../store/alert-store";
 
@@ -19,6 +19,7 @@ const navItems = [
   { label: "Audit Log", icon: ScrollText, path: "/audit-log" },
   { label: "Analytics", icon: BarChart3, path: "/analytics" },
   { label: "Policy", icon: Shield, path: "/policy" },
+  { label: "Reports", icon: FileText, path: "/reports" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 

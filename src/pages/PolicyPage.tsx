@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { collection, getDocs, addDoc, updateDoc, doc } from "firebase/firestore";
+import { getDoc, setDoc, doc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { COLLECTIONS } from "../utils/constants";
 import { DataTable } from "../components/common/DataTable";
@@ -21,35 +21,35 @@ export function PolicyPage() {
   const { data: destinations = [], isLoading } = useQuery({
     queryKey: ["destinations"],
     queryFn: async () => {
-      const snap = await getDocs(collection(db, COLLECTIONS.SETTINGS));
-      const settingsDoc = snap.docs.find((d) => d.id === "destinationTrust");
-      if (!settingsDoc) return [];
+      const settingsRef = doc(db, COLLECTIONS.SETTINGS, "destinationTrust");
+      const settingsDoc = await getDoc(settingsRef);
+      if (!settingsDoc.exists()) return [];
       const data = settingsDoc.data();
-      return (data.destinations || []).map((d: Record<string, unknown>, i: number) => ({ ...d, id: `dest-${i}` }));
+      return (data.destinations || []).map((d: Record<string, unknown>, i: number) => {
+        const addedAt = (d as { addedAt?: unknown }).addedAt;
+        const normalizedAddedAt =
+          addedAt && typeof addedAt === "object" && "toDate" in (addedAt as Record<string, unknown>)
+            ? (addedAt as { toDate: () => Date }).toDate()
+            : addedAt;
+        return { ...d, addedAt: normalizedAddedAt, id: `dest-${i}` };
+      });
     },
   });
 
   const addMutation = useMutation({
     mutationFn: async () => {
       // For simplicity, store destinations as an array in settings/destinationTrust
-      const snap = await getDocs(collection(db, COLLECTIONS.SETTINGS));
-      const settingsDoc = snap.docs.find((d) => d.id === "destinationTrust");
-      const existing = settingsDoc?.data()?.destinations || [];
+      const settingsRef = doc(db, COLLECTIONS.SETTINGS, "destinationTrust");
+      const settingsDoc = await getDoc(settingsRef);
+      const existing = settingsDoc.exists() ? (settingsDoc.data()?.destinations || []) : [];
+      const domain = newDomain.trim();
       const newDest = {
-        domain: newDomain,
+        domain,
         category: newCategory,
         trustScore: newScore,
         addedAt: new Date(),
       };
-      if (settingsDoc) {
-        await updateDoc(doc(db, COLLECTIONS.SETTINGS, settingsDoc.id), {
-          destinations: [...existing, newDest],
-        });
-      } else {
-        await addDoc(collection(db, COLLECTIONS.SETTINGS), {
-          destinations: [newDest],
-        });
-      }
+      await setDoc(settingsRef, { destinations: [...existing, newDest] }, { merge: true });
     },
     onSuccess: () => {
       toast.success("Domain added");
@@ -87,7 +87,20 @@ export function PolicyPage() {
       header: "Added",
       cell: (info) => {
         const val = info.getValue();
-        return <span className="text-xs text-slate-500">{val ? new Date(val as string).toLocaleDateString() : "—"}</span>;
+        if (!val) return <span className="text-xs text-slate-500">—</span>;
+        const dateValue =
+          val instanceof Date
+            ? val
+            : typeof val === "string" || typeof val === "number"
+              ? new Date(val)
+              : "toDate" in (val as Record<string, unknown>)
+                ? (val as { toDate: () => Date }).toDate()
+                : null;
+        return (
+          <span className="text-xs text-slate-500">
+            {dateValue && !Number.isNaN(dateValue.getTime()) ? dateValue.toLocaleDateString() : "—"}
+          </span>
+        );
       },
     }),
   ], []);
@@ -147,8 +160,8 @@ export function PolicyPage() {
               />
             </div>
             <button
-              onClick={() => newDomain && addMutation.mutate()}
-              disabled={!newDomain || addMutation.isPending}
+              onClick={() => newDomain.trim() && addMutation.mutate()}
+              disabled={!newDomain.trim() || addMutation.isPending}
               className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {addMutation.isPending ? "Adding..." : "Add"}

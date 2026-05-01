@@ -3,20 +3,16 @@ import { format, formatDistanceToNow, isValid, parseISO } from "date-fns";
 /** Converts any date-like value (JS Date, ISO string, Firestore Timestamp) to a JS Date */
 export function toDate(input: unknown): Date | null {
   if (!input) return null;
-  // Firestore Timestamp — has toDate()
   if (typeof (input as { toDate?: unknown }).toDate === "function") {
     return (input as { toDate: () => Date }).toDate();
   }
-  // Firestore Timestamp-like plain object — has .seconds
   if (typeof input === "object" && typeof (input as { seconds?: unknown }).seconds === "number") {
     return new Date((input as { seconds: number }).seconds * 1000);
   }
-  // ISO string
   if (typeof input === "string") {
     const d = parseISO(input);
     return isValid(d) ? d : null;
   }
-  // Already a Date
   if (input instanceof Date) return isValid(input) ? input : null;
   return null;
 }

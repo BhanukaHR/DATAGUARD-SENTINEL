@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using DataGuard.HubServer.Services;
 
 namespace DataGuard.HubServer.Hubs;
 
@@ -15,15 +16,15 @@ namespace DataGuard.HubServer.Hubs;
 public class MonitoringHub : Hub
 {
     private readonly ILogger<MonitoringHub> _logger;
+    private readonly PersistenceService _persistence;
 
-    // agentId → connectionId (for status tracking)
     private static readonly ConcurrentDictionary<string, string> AgentConnections = new();
-    // connectionId → agentId (reverse lookup for disconnect)
     private static readonly ConcurrentDictionary<string, string> ConnectionAgents = new();
 
-    public MonitoringHub(ILogger<MonitoringHub> logger)
+    public MonitoringHub(ILogger<MonitoringHub> logger, PersistenceService persistence)
     {
         _logger = logger;
+        _persistence = persistence;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -34,14 +35,12 @@ public class MonitoringHub : Hub
     {
         var connectionId = Context.ConnectionId;
 
-        // Clean up if this was an agent
         if (ConnectionAgents.TryRemove(connectionId, out var agentId))
         {
             AgentConnections.TryRemove(agentId, out _);
 
             _logger.LogInformation("[Hub] Agent disconnected: {agentId}", agentId);
 
-            // Notify dashboard the agent went offline
             await Clients.Group("dashboard").SendAsync("AgentStatusUpdate", JsonSerializer.Serialize(new
             {
                 AgentId = agentId,
@@ -102,23 +101,42 @@ public class MonitoringHub : Hub
     {
         try
         {
-            var reg = JsonSerializer.Deserialize<JsonElement>(registrationJson);
-            var agentId = reg.GetProperty("AgentId").GetString() ?? Context.ConnectionId;
+            var regDict = JsonSerializer.Deserialize<Dictionary<string, object?>>(registrationJson) ?? new();
 
-            // Track connection
+            string? ReadString(params string[] keys)
+            {
+                foreach (var key in keys)
+                {
+                    if (!regDict.TryGetValue(key, out var value) || value is null) continue;
+                    if (value is JsonElement el)
+                    {
+                        if (el.ValueKind == JsonValueKind.String) return el.GetString();
+                        return el.ToString();
+                    }
+                    return value.ToString();
+                }
+                return null;
+            }
+
+            var agentId = ReadString("AgentId", "agentId");
+            if (string.IsNullOrWhiteSpace(agentId))
+            {
+                agentId = Guid.NewGuid().ToString("N");
+            }
+
+            regDict["AgentId"] = agentId;
+            var normalizedJson = JsonSerializer.Serialize(regDict);
+
             AgentConnections[agentId] = Context.ConnectionId;
             ConnectionAgents[Context.ConnectionId] = agentId;
 
-            // Add to groups
             await Groups.AddToGroupAsync(Context.ConnectionId, "agents");
             await Groups.AddToGroupAsync(Context.ConnectionId, $"agent_{agentId}");
 
-            _logger.LogInformation("[Hub] Agent registered: {agentId} ({machine})",
-                agentId,
-                reg.TryGetProperty("MachineName", out var m) ? m.GetString() : "unknown");
+            var machineName = ReadString("MachineName", "machineName") ?? "unknown";
+            _logger.LogInformation("[Hub] Agent registered: {agentId} ({machine})", agentId, machineName);
 
-            // Notify all dashboard clients
-            await Clients.Group("dashboard").SendAsync("AgentConnected", registrationJson);
+            await Clients.Group("dashboard").SendAsync("AgentConnected", normalizedJson);
         }
         catch (Exception ex)
         {
@@ -143,13 +161,14 @@ public class MonitoringHub : Hub
         }
     }
 
-    /// <summary>Agent sends an upload event — forwarded to all dashboard clients.</summary>
+    /// <summary>Agent sends an upload event — forwarded to all dashboard clients and persisted.</summary>
     public async Task SendUploadEvent(string uploadEventJson)
     {
         try
         {
             _logger.LogDebug("[Hub] Upload event received");
             await Clients.Group("dashboard").SendAsync("ReceiveUploadEvent", uploadEventJson);
+            _ = _persistence.PersistEvent("uploadEvents", uploadEventJson);
         }
         catch (Exception ex)
         {
@@ -166,7 +185,6 @@ public class MonitoringHub : Hub
             _logger.LogDebug("[Hub] Risk profile update: {user}",
                 profile.TryGetProperty("Username", out var u) ? u.GetString() : "unknown");
 
-            // The dashboard hook expects (profile, brsResult) — send same payload for both
             await Clients.Group("dashboard").SendAsync("ReceiveRiskUpdate", profileJson, profileJson);
         }
         catch (Exception ex)
@@ -192,13 +210,14 @@ public class MonitoringHub : Hub
         }
     }
 
-    /// <summary>Agent sends an AI application event — forwarded to all dashboard clients.</summary>
+    /// <summary>Agent sends an AI application event — forwarded to all dashboard clients and persisted.</summary>
     public async Task SendAiApplicationEvent(string aiEventJson)
     {
         try
         {
             _logger.LogInformation("[Hub] AI application event received");
             await Clients.Group("dashboard").SendAsync("ReceiveAiEvent", aiEventJson);
+            _ = _persistence.PersistEvent("aiApplicationEvents", aiEventJson);
         }
         catch (Exception ex)
         {
@@ -206,13 +225,14 @@ public class MonitoringHub : Hub
         }
     }
 
-    /// <summary>Agent sends an FTP transfer event — forwarded to all dashboard clients.</summary>
+    /// <summary>Agent sends an FTP transfer event — forwarded to all dashboard clients and persisted.</summary>
     public async Task SendFtpEvent(string ftpEventJson)
     {
         try
         {
             _logger.LogInformation("[Hub] FTP event received");
             await Clients.Group("dashboard").SendAsync("ReceiveFtpEvent", ftpEventJson);
+            _ = _persistence.PersistEvent("ftpEvents", ftpEventJson);
         }
         catch (Exception ex)
         {
@@ -220,13 +240,14 @@ public class MonitoringHub : Hub
         }
     }
 
-    /// <summary>Agent sends an email exfiltration event — forwarded to all dashboard clients.</summary>
+    /// <summary>Agent sends an email exfiltration event — forwarded to all dashboard clients and persisted.</summary>
     public async Task SendEmailEvent(string emailEventJson)
     {
         try
         {
             _logger.LogInformation("[Hub] Email event received");
             await Clients.Group("dashboard").SendAsync("ReceiveEmailEvent", emailEventJson);
+            _ = _persistence.PersistEvent("emailEvents", emailEventJson);
         }
         catch (Exception ex)
         {
@@ -244,6 +265,36 @@ public class MonitoringHub : Hub
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "[Hub] Failed to forward heartbeat");
+        }
+    }
+
+    /// <summary>Agent sends a USB/removable media event — forwarded to all dashboard clients and persisted.</summary>
+    public async Task SendUsbEvent(string usbEventJson)
+    {
+        try
+        {
+            _logger.LogInformation("[Hub] USB event received");
+            await Clients.Group("dashboard").SendAsync("ReceiveUsbEvent", usbEventJson);
+            _ = _persistence.PersistEvent("usbEvents", usbEventJson);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Hub] Failed to forward USB event");
+        }
+    }
+
+    /// <summary>Agent sends a clipboard event — forwarded to all dashboard clients and persisted.</summary>
+    public async Task SendClipboardEvent(string clipboardEventJson)
+    {
+        try
+        {
+            _logger.LogInformation("[Hub] Clipboard event received");
+            await Clients.Group("dashboard").SendAsync("ReceiveClipboardEvent", clipboardEventJson);
+            _ = _persistence.PersistEvent("clipboardEvents", clipboardEventJson);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Hub] Failed to forward clipboard event");
         }
     }
 

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { eventService } from "../services/event-service";
+import { alertService } from "../services/alert-service";
 import { useAlertStore } from "../store/alert-store";
 import { DataTable } from "../components/common/DataTable";
 import { BooleanBadge, SensitivityBadge } from "../components/common/Badges";
@@ -8,6 +9,7 @@ import { formatDate } from "../utils/formatters";
 import { createColumnHelper } from "@tanstack/react-table";
 import type { EmailExfiltrationEvent } from "../types/email-event";
 import { Mail } from "lucide-react";
+import { deriveEmailEventFromAlert } from "../utils/event-derivers";
 
 const columnHelper = createColumnHelper<EmailExfiltrationEvent>();
 
@@ -17,12 +19,23 @@ export function EmailEventsPage() {
     queryFn: () => eventService.getEmailEvents({}),
   });
 
+  const { data: emailAlertData } = useQuery({
+    queryKey: ["emailEventAlerts"],
+    queryFn: () => alertService.getAlerts({}),
+  });
+
   const liveEmailEvents = useAlertStore((s) => s.liveEmailEvents);
 
-  // Merge live SignalR events with Firestore events, deduplicate by eventId
   const mergedEvents = useMemo(() => {
     const firestoreEvents = data?.events || [];
-    const all = [...liveEmailEvents, ...firestoreEvents];
+    const emailAlerts = (emailAlertData?.alerts || []).filter((a) => {
+      const channel = String(a.channel || "").toLowerCase();
+      if (channel === "email") return true;
+      const text = `${a.title} ${a.message}`.toLowerCase();
+      return text.includes("email") || text.includes("mail") || text.includes("attachment") || text.includes("outlook") || text.includes("gmail") || text.includes("smtp");
+    });
+    const derivedEvents = emailAlerts.map(deriveEmailEventFromAlert);
+    const all = [...liveEmailEvents, ...firestoreEvents, ...derivedEvents];
     const seen = new Set<string>();
     return all.filter((e) => {
       const id = e.eventId;
@@ -30,7 +43,7 @@ export function EmailEventsPage() {
       seen.add(id);
       return true;
     });
-  }, [liveEmailEvents, data?.events]);
+  }, [liveEmailEvents, data?.events, emailAlertData]);
 
   const columns = useMemo(() => [
     columnHelper.accessor("timestamp", {
